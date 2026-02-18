@@ -24,12 +24,15 @@ def canonical_listing_url(url: str) -> str:
     return url.split("?")[0].rstrip("/")
 
 
-def page_url(base: str, page: int) -> str:
-    """URL de la página N. ZonaProp: orden publicado descendente, luego -pagina-N antes de .html."""
+def page_url(base: str, page: int, use_order: bool = True) -> str:
+    """URL de la página N. ZonaProp: orden publicado descendente (si funciona), luego -pagina-N antes de .html."""
     base = base.split("?")[0].rstrip("/")
     if not base.endswith(".html"):
         base = base + ".html"
-    base_with_order = base.replace(".html", "-orden-publicado-descendente.html")
+    if use_order:
+        base_with_order = base.replace(".html", "-orden-publicado-descendente.html")
+    else:
+        base_with_order = base
     if page == 1:
         return base_with_order
     return base_with_order.replace(".html", f"-pagina-{page}.html")
@@ -72,23 +75,47 @@ def scrape_all_listings(
     """
     seen = set()
     results = []
+    use_order = True  # Intentar con orden primero
+    
     for base_url in search_urls:
         if max_listings is not None and len(results) >= max_listings:
             break
         base_url = base_url.split("?")[0].rstrip("/")
         if not base_url.endswith(".html"):
             base_url = base_url + ".html"
+        
+        # Probar primera página con orden, si falla probar sin orden
+        first_page_failed = False
         for page in range(1, max_pages_per_url + 1):
             if max_listings is not None and len(results) >= max_listings:
                 break
-            url = page_url(base_url, page)
+            url = page_url(base_url, page, use_order=use_order)
             try:
                 print(f"  Scrapeando: {url}")
                 rows = fetch_listing_page(session, url)
                 print(f"    Encontrados {len(rows)} avisos en esta página")
+                # Si la primera página falló con orden pero funciona sin orden, seguir sin orden
+                if page == 1 and first_page_failed and len(rows) > 0:
+                    print(f"  ✓ Orden sin '-orden-publicado-descendente' funciona, continuando sin orden")
+                    use_order = False
             except Exception as e:
-                print(f"  ⚠️  Error scrapeando {url}: {e}")
-                break
+                error_msg = str(e)
+                print(f"  ⚠️  Error scrapeando {url}: {error_msg}")
+                # Si es 403 o 404 en la primera página con orden, probar sin orden
+                if page == 1 and use_order and ("403" in error_msg or "404" in error_msg or "Forbidden" in error_msg):
+                    print(f"  ⚠️  El orden '-orden-publicado-descendente' no funciona, probando sin orden...")
+                    use_order = False
+                    first_page_failed = True
+                    url = page_url(base_url, page, use_order=False)
+                    try:
+                        print(f"  Scrapeando (sin orden): {url}")
+                        rows = fetch_listing_page(session, url)
+                        print(f"    Encontrados {len(rows)} avisos en esta página")
+                    except Exception as e2:
+                        print(f"  ⚠️  Error también sin orden: {e2}")
+                        break
+                else:
+                    break
             if not rows:
                 print(f"  Sin avisos en página {page}, terminando paginación para {base_url}")
                 break
