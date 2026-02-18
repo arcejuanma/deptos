@@ -10,6 +10,6 @@ services:
       - TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID}
       - RUN_INTERVAL_MINUTES=${RUN_INTERVAL_MINUTES:-60}  # Cada 60 min por defecto
     volumes:
-      - ./cron.log:/app/cron.log  # Para ver logs persistentes
+      - ./logs:/app/logs  # Para ver logs persistentes
     networks:
       - default
