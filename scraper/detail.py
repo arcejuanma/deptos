@@ -123,5 +123,32 @@ def fetch_and_parse_detail(session, detail_url: str) -> dict | None:
         r.raise_for_status()
         data = parse_detail_html(r.text, detail_url)
         return data
-    except Exception:
+    except Exception as e:
+        error_msg = str(e)
+        # Si es 403, intentar con Playwright
+        if "403" in error_msg or "Forbidden" in error_msg:
+            try:
+                from playwright.sync_api import sync_playwright
+                with sync_playwright() as p:
+                    browser = p.chromium.launch(
+                        headless=True,
+                        args=['--disable-blink-features=AutomationControlled', '--no-sandbox']
+                    )
+                    context = browser.new_context(
+                        user_agent='Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                        viewport={'width': 1440, 'height': 900},
+                        locale='es-AR',
+                    )
+                    page = context.new_page()
+                    page.goto(detail_url, wait_until="domcontentloaded", timeout=60000)
+                    import time
+                    time.sleep(3)  # Esperar contenido dinámico
+                    html = page.content()
+                    context.close()
+                    browser.close()
+                data = parse_detail_html(html, detail_url)
+                return data
+            except Exception as e_playwright:
+                # Si Playwright también falla, retornar None
+                return None
         return None
