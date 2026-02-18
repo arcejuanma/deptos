@@ -1,0 +1,17 @@
+version: '3.8'
+
+services:
+  zonaprop-bot:
+    build: .
+    container_name: zonaprop-bot
+    restart: unless-stopped  # Se reinicia automáticamente si el servidor se reinicia
+    environment:
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_SERVICE_KEY=${SUPABASE_SERVICE_KEY}
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID}
+      - RUN_INTERVAL_MINUTES=${RUN_INTERVAL_MINUTES:-60}  # Cada 60 min por defecto
+    volumes:
+      - ./cron.log:/app/cron.log  # Para ver logs persistentes
+    networks:
+      - default
