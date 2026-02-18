@@ -148,9 +148,44 @@ def scrape_all_listings(
                         print(f"    Encontrados {len(rows)} avisos en esta página")
                     except Exception as e2:
                         print(f"  ⚠️  Error también sin orden: {e2}")
-                        rows = []
+                        # Si sigue siendo 403, intentar con Playwright
+                        if "403" in str(e2) or "Forbidden" in str(e2):
+                            print(f"  ⚠️  403 persistente, intentando con Playwright (navegador real)...")
+                            try:
+                                from playwright.sync_api import sync_playwright
+                                from scraper.listing_playwright import fetch_listing_page_playwright
+                                with sync_playwright() as p:
+                                    browser = p.chromium.launch(headless=True)
+                                    browser_page = browser.new_page()
+                                    rows = fetch_listing_page_playwright(browser_page, url)
+                                    browser.close()
+                                print(f"    Encontrados {len(rows)} avisos con Playwright")
+                            except ImportError:
+                                print(f"  ⚠️  Playwright no está instalado. Instalar con: playwright install chromium")
+                                rows = []
+                            except Exception as e3:
+                                print(f"  ⚠️  Error con Playwright: {e3}")
+                                rows = []
+                        else:
+                            rows = []
                 else:
-                    rows = []
+                    # Si es 403 en otra página, también intentar Playwright
+                    if "403" in error_msg or "Forbidden" in error_msg:
+                        print(f"  ⚠️  403 detectado, intentando con Playwright...")
+                        try:
+                            from playwright.sync_api import sync_playwright
+                            from scraper.listing_playwright import fetch_listing_page_playwright
+                            with sync_playwright() as p:
+                                browser = p.chromium.launch(headless=True)
+                                browser_page = browser.new_page()
+                                rows = fetch_listing_page_playwright(browser_page, url)
+                                browser.close()
+                            print(f"    Encontrados {len(rows)} avisos con Playwright")
+                        except Exception as e_playwright:
+                            print(f"  ⚠️  Error con Playwright: {e_playwright}")
+                            rows = []
+                    else:
+                        rows = []
             # Si no encontró avisos y es página 1 con orden, probar sin orden
             if not rows and page == 1 and use_order:
                 print(f"  ⚠️  No se encontraron avisos con orden, probando sin orden...")
