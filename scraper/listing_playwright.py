@@ -68,12 +68,36 @@ def fetch_listing_page_playwright(page, url: str) -> list[dict]:
         
         html = page.content()
         soup = BeautifulSoup(html, "lxml")
+        
+        # Intentar múltiples selectores (ZonaProp puede cambiar la estructura)
         cards = soup.find_all("div", attrs={"data-posting-type": True})
         if not cards:
             cards = soup.select("[data-to-posting]")
         if not cards:
+            # Buscar por clases comunes de tarjetas
+            cards = soup.select("[class*='posting-card'], [class*='PostingCard'], [class*='card-posting']")
+        if not cards:
+            # Buscar por estructura: divs que contengan links a /inmuebles-
+            cards = []
+            for div in soup.find_all("div", class_=True):
+                link = div.find("a", href=lambda x: x and "/inmuebles-" in str(x))
+                if link:
+                    cards.append(div)
+        if not cards:
+            # Último intento: buscar cualquier link a inmuebles y tomar su contenedor
+            inmueble_links = soup.find_all("a", href=lambda x: x and "/inmuebles-" in str(x))
+            if inmueble_links:
+                cards = [link.find_parent("div") or link.find_parent("article") or link for link in inmueble_links[:50]]
+                cards = [c for c in cards if c is not None]
+        
+        if not cards:
             print(f"  ⚠️  No se encontraron tarjetas en {url}")
             print(f"     Tamaño HTML: {len(html)} bytes")
+            # Debug: buscar qué hay realmente en el HTML
+            inmueble_links = soup.find_all("a", href=lambda x: x and "/inmuebles-" in str(x))
+            print(f"     Links a /inmuebles- encontrados: {len(inmueble_links)}")
+            if inmueble_links:
+                print(f"     Primeros 3 links: {[a.get('href', '')[:60] for a in inmueble_links[:3]]}")
             # Guardar HTML para debug
             debug_file = f"debug_playwright_{url.split('/')[-1].replace('.html', '')}.html"
             try:
