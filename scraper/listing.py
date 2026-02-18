@@ -52,23 +52,30 @@ def fetch_listing_page(session: cloudscraper.CloudScraper, url: str) -> list[dic
     r.raise_for_status()
     
     # Verificar encoding y contenido
+    encoding = r.headers.get('Content-Encoding', '').lower()
     print(f"    Content-Type: {r.headers.get('Content-Type', 'N/A')}")
-    print(f"    Content-Encoding: {r.headers.get('Content-Encoding', 'N/A')}")
-    print(f"    Tamaño respuesta: {len(r.content)} bytes, texto: {len(r.text)} chars")
+    print(f"    Content-Encoding: {encoding or 'N/A'}")
     
-    # Verificar si el contenido parece HTML válido
-    if not r.text.strip().startswith('<') and len(r.text) > 100:
-        print(f"    ⚠️  El contenido no parece HTML válido (primeros chars: {repr(r.text[:100])})")
-        # Intentar decodificar manualmente si está comprimido
-        import gzip
-        try:
-            decompressed = gzip.decompress(r.content).decode('utf-8')
-            print(f"    ✓ Descomprimido con gzip: {len(decompressed)} chars")
-            html_text = decompressed
-        except:
-            html_text = r.text
-    else:
-        html_text = r.text
+    # Descomprimir manualmente si es necesario (cloudscraper a veces no descomprime Brotli)
+    html_text = r.text
+    if encoding and ('br' in encoding or 'brotli' in encoding or 'gzip' in encoding):
+        # Si el texto no parece HTML válido, intentar descomprimir manualmente
+        if not html_text.strip().startswith('<') and len(html_text) > 100:
+            print(f"    ⚠️  Contenido comprimido no descomprimido automáticamente, descomprimiendo manualmente...")
+            try:
+                if 'br' in encoding or 'brotli' in encoding:
+                    import brotli
+                    html_text = brotli.decompress(r.content).decode('utf-8')
+                    print(f"    ✓ Descomprimido con Brotli: {len(html_text)} chars")
+                elif 'gzip' in encoding:
+                    import gzip
+                    html_text = gzip.decompress(r.content).decode('utf-8')
+                    print(f"    ✓ Descomprimido con gzip: {len(html_text)} chars")
+            except ImportError as e:
+                print(f"    ⚠️  Falta librería para descompresión: {e}. Instalar: pip install brotli")
+            except Exception as e:
+                print(f"    ⚠️  Error descomprimiendo: {e}")
+                html_text = r.text  # Fallback al texto original
     
     soup = BeautifulSoup(html_text, "lxml")
     cards = soup.find_all("div", attrs={"data-posting-type": True})
@@ -108,7 +115,6 @@ def scrape_all_listings(
     """
     seen = set()
     results = []
-    use_order = True  # Intentar con orden primero
     
     for base_url in search_urls:
         if max_listings is not None and len(results) >= max_listings:
@@ -118,19 +124,16 @@ def scrape_all_listings(
             base_url = base_url + ".html"
         
         # Probar primera página con orden, si falla probar sin orden
-        first_page_failed = False
+        use_order = True
         for page in range(1, max_pages_per_url + 1):
             if max_listings is not None and len(results) >= max_listings:
                 break
+            rows = []
             url = page_url(base_url, page, use_order=use_order)
             try:
                 print(f"  Scrapeando: {url}")
                 rows = fetch_listing_page(session, url)
                 print(f"    Encontrados {len(rows)} avisos en esta página")
-                # Si la primera página falló con orden pero funciona sin orden, seguir sin orden
-                if page == 1 and first_page_failed and len(rows) > 0:
-                    print(f"  ✓ Orden sin '-orden-publicado-descendente' funciona, continuando sin orden")
-                    use_order = False
             except Exception as e:
                 error_msg = str(e)
                 print(f"  ⚠️  Error scrapeando {url}: {error_msg}")
@@ -138,7 +141,6 @@ def scrape_all_listings(
                 if page == 1 and use_order and ("403" in error_msg or "404" in error_msg or "Forbidden" in error_msg):
                     print(f"  ⚠️  El orden '-orden-publicado-descendente' no funciona, probando sin orden...")
                     use_order = False
-                    first_page_failed = True
                     url = page_url(base_url, page, use_order=False)
                     try:
                         print(f"  Scrapeando (sin orden): {url}")
@@ -146,28 +148,25 @@ def scrape_all_listings(
                         print(f"    Encontrados {len(rows)} avisos en esta página")
                     except Exception as e2:
                         print(f"  ⚠️  Error también sin orden: {e2}")
-                        break
+                        rows = []
                 else:
-                    break
+                    rows = []
+            # Si no encontró avisos y es página 1 con orden, probar sin orden
+            if not rows and page == 1 and use_order:
+                print(f"  ⚠️  No se encontraron avisos con orden, probando sin orden...")
+                use_order = False
+                url = page_url(base_url, page, use_order=False)
+                try:
+                    print(f"  Scrapeando (sin orden): {url}")
+                    rows = fetch_listing_page(session, url)
+                    print(f"    Encontrados {len(rows)} avisos en esta página")
+                except Exception as e2:
+                    print(f"  ⚠️  Error también sin orden: {e2}")
+                    rows = []
             if not rows:
-                # Si no encontró avisos con orden, probar sin orden en la primera página
-                if page == 1 and use_order:
-                    print(f"  ⚠️  No se encontraron avisos con orden, probando sin orden...")
-                    use_order = False
-                    first_page_failed = True
-                    url = page_url(base_url, page, use_order=False)
-                    try:
-                        print(f"  Scrapeando (sin orden): {url}")
-                        rows = fetch_listing_page(session, url)
-                        print(f"    Encontrados {len(rows)} avisos en esta página")
-                        if len(rows) > 0:
-                            continue  # Continuar procesando estos avisos
-                    except Exception as e2:
-                        print(f"  ⚠️  Error también sin orden: {e2}")
                 print(f"  Sin avisos en página {page}, terminando paginación para {base_url}")
                 break
-                print(f"  Sin avisos en página {page}, terminando paginación para {base_url}")
-                break
+            # Procesar avisos encontrados
             for row in rows:
                 if max_listings is not None and len(results) >= max_listings:
                     break
