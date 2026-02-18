@@ -16,7 +16,7 @@ from scraper.filters import passes_all_hard_filters, passes_price
 from scraper.listing import scrape_all_listings
 import supabase_store
 
-import cloudscraper
+from scraper.session import create_scraper_session
 
 
 def main():
@@ -46,7 +46,8 @@ def main():
             print(f"Falta variable de entorno: {var}")
             return
 
-    session = cloudscraper.create_scraper()
+    # Crear scraper con configuración para evitar detección
+    session = create_scraper_session()
 
     # URLs ya en Supabase (notificadas) o en caché reciente → no contar como "nuevos"
     known_urls = supabase_store.get_known_urls(
