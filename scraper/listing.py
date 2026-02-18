@@ -58,6 +58,11 @@ def fetch_listing_page(session: cloudscraper.CloudScraper, url: str) -> list[dic
         # Debug: guardar HTML si no encuentra tarjetas
         print(f"  ⚠️  No se encontraron tarjetas en {url}")
         print(f"     Status code: {r.status_code}, Tamaño HTML: {len(r.text)} bytes")
+        # Guardar HTML para debug
+        debug_file = f"debug_{url.split('/')[-1].replace('.html', '')}.html"
+        with open(debug_file, 'w', encoding='utf-8') as f:
+            f.write(r.text)
+        print(f"     HTML guardado en {debug_file} para inspección")
     out = []
     for node in cards:
         row = parse_card(node)
@@ -125,6 +130,22 @@ def scrape_all_listings(
                 else:
                     break
             if not rows:
+                # Si no encontró avisos con orden, probar sin orden en la primera página
+                if page == 1 and use_order:
+                    print(f"  ⚠️  No se encontraron avisos con orden, probando sin orden...")
+                    use_order = False
+                    first_page_failed = True
+                    url = page_url(base_url, page, use_order=False)
+                    try:
+                        print(f"  Scrapeando (sin orden): {url}")
+                        rows = fetch_listing_page(session, url)
+                        print(f"    Encontrados {len(rows)} avisos en esta página")
+                        if len(rows) > 0:
+                            continue  # Continuar procesando estos avisos
+                    except Exception as e2:
+                        print(f"  ⚠️  Error también sin orden: {e2}")
+                print(f"  Sin avisos en página {page}, terminando paginación para {base_url}")
+                break
                 print(f"  Sin avisos en página {page}, terminando paginación para {base_url}")
                 break
             for row in rows:
