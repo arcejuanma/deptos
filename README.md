@@ -73,10 +73,8 @@ Definí estas variables antes de ejecutar el bot (o en un `.env` y cargalas con 
 Ejemplo en la terminal (Linux/macOS):
 
 ```bash
-export SUPABASE_URL="https://mvhdadyairzmtkvuaylx.supabase.co"
-export SUPABASE_SERVICE_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im12aGRhZHlhaXJ6bXRrdnVheWx4Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3MTEwMDQ4OSwiZXhwIjoyMDg2Njc2NDg5fQ.3N3mPGNLR4DwqcU9ljJjTXOn-OJWLOGjGh7KL_3ivXE"
-export TELEGRAM_BOT_TOKEN="8237983360:AAH_lQ_Ycprh2Rx9wqxz0u9kq-oam2-4-Uo"
-export TELEGRAM_CHAT_ID="-5259980067"
+
+
 ```
 
  Done! Congratulations on your new bot. You will find it at t.me/prop_finder12bot. You can now add a description, about section and profile picture for your bot, see /help for a list of commands. By the way, when you've finished creating your cool bot, ping our Bot Support if you want a better username for it. Just make sure the bot is fully operational before you do this.
