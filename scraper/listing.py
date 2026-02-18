@@ -154,10 +154,26 @@ def scrape_all_listings(
                             try:
                                 from playwright.sync_api import sync_playwright
                                 from scraper.listing_playwright import fetch_listing_page_playwright
+                                # Configurar browser para parecer laptop común (macOS Chrome)
                                 with sync_playwright() as p:
-                                    browser = p.chromium.launch(headless=True)
-                                    browser_page = browser.new_page()
+                                    browser = p.chromium.launch(
+                                        headless=True,
+                                        args=[
+                                            '--disable-blink-features=AutomationControlled',
+                                            '--disable-dev-shm-usage',
+                                            '--no-sandbox',
+                                        ]
+                                    )
+                                    # Crear contexto con user agent de macOS Chrome
+                                    context = browser.new_context(
+                                        user_agent='Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                                        viewport={'width': 1440, 'height': 900},
+                                        locale='es-AR',
+                                        timezone_id='America/Argentina/Buenos_Aires',
+                                    )
+                                    browser_page = context.new_page()
                                     rows = fetch_listing_page_playwright(browser_page, url)
+                                    context.close()
                                     browser.close()
                                 print(f"    Encontrados {len(rows)} avisos con Playwright")
                             except ImportError:
@@ -175,10 +191,25 @@ def scrape_all_listings(
                         try:
                             from playwright.sync_api import sync_playwright
                             from scraper.listing_playwright import fetch_listing_page_playwright
+                            # Configurar browser para parecer laptop común (macOS Chrome)
                             with sync_playwright() as p:
-                                browser = p.chromium.launch(headless=True)
-                                browser_page = browser.new_page()
+                                browser = p.chromium.launch(
+                                    headless=True,
+                                    args=[
+                                        '--disable-blink-features=AutomationControlled',
+                                        '--disable-dev-shm-usage',
+                                        '--no-sandbox',
+                                    ]
+                                )
+                                context = browser.new_context(
+                                    user_agent='Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                                    viewport={'width': 1440, 'height': 900},
+                                    locale='es-AR',
+                                    timezone_id='America/Argentina/Buenos_Aires',
+                                )
+                                browser_page = context.new_page()
                                 rows = fetch_listing_page_playwright(browser_page, url)
+                                context.close()
                                 browser.close()
                             print(f"    Encontrados {len(rows)} avisos con Playwright")
                         except Exception as e_playwright:
