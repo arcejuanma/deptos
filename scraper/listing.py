@@ -40,7 +40,15 @@ def page_url(base: str, page: int, use_order: bool = True) -> str:
 
 def fetch_listing_page(session: cloudscraper.CloudScraper, url: str) -> list[dict]:
     """Obtiene HTML de una página de listado y devuelve lista de dicts por card (con url, precio, etc.)."""
-    r = session.get(url)
+    # Agregar referer para parecer navegación real
+    headers = {
+        'Referer': 'https://www.zonaprop.com.ar/',
+        'Sec-Fetch-Site': 'same-origin',
+        'Sec-Fetch-Mode': 'navigate',
+        'Sec-Fetch-Dest': 'document',
+        'Sec-Fetch-User': '?1',
+    }
+    r = session.get(url, headers=headers, timeout=30)
     r.raise_for_status()
     soup = BeautifulSoup(r.text, "lxml")
     cards = soup.find_all("div", attrs={"data-posting-type": True})
