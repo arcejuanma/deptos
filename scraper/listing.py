@@ -50,7 +50,27 @@ def fetch_listing_page(session: cloudscraper.CloudScraper, url: str) -> list[dic
     }
     r = session.get(url, headers=headers, timeout=30)
     r.raise_for_status()
-    soup = BeautifulSoup(r.text, "lxml")
+    
+    # Verificar encoding y contenido
+    print(f"    Content-Type: {r.headers.get('Content-Type', 'N/A')}")
+    print(f"    Content-Encoding: {r.headers.get('Content-Encoding', 'N/A')}")
+    print(f"    Tamaño respuesta: {len(r.content)} bytes, texto: {len(r.text)} chars")
+    
+    # Verificar si el contenido parece HTML válido
+    if not r.text.strip().startswith('<') and len(r.text) > 100:
+        print(f"    ⚠️  El contenido no parece HTML válido (primeros chars: {repr(r.text[:100])})")
+        # Intentar decodificar manualmente si está comprimido
+        import gzip
+        try:
+            decompressed = gzip.decompress(r.content).decode('utf-8')
+            print(f"    ✓ Descomprimido con gzip: {len(decompressed)} chars")
+            html_text = decompressed
+        except:
+            html_text = r.text
+    else:
+        html_text = r.text
+    
+    soup = BeautifulSoup(html_text, "lxml")
     cards = soup.find_all("div", attrs={"data-posting-type": True})
     if not cards:
         cards = soup.select("[data-to-posting]")
