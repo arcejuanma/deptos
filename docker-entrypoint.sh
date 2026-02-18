@@ -1,6 +1,12 @@
 #!/bin/bash
 set -e
 
+# Si se pasan argumentos, ejecutarlos directamente (para docker compose run con comandos específicos)
+if [ $# -gt 0 ]; then
+    exec "$@"
+fi
+
+# Si no hay argumentos, ejecutar en modo loop (comportamiento por defecto)
 # Intervalo en minutos (por defecto 60, pero se puede cambiar con env var)
 INTERVAL_MINUTES=${RUN_INTERVAL_MINUTES:-60}
 
