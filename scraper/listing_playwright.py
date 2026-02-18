@@ -15,8 +15,23 @@ def fetch_listing_page_playwright(page, url: str) -> list[dict]:
     Útil cuando cloudscraper es bloqueado con 403.
     """
     try:
-        page.goto(url, wait_until="networkidle", timeout=30000)
-        time.sleep(2)  # Esperar un poco más para que cargue el contenido dinámico
+        # Configurar user agent y viewport para parecer navegador real
+        page.set_viewport_size({"width": 1920, "height": 1080})
+        page.set_extra_http_headers({
+            'Accept-Language': 'es-AR,es;q=0.9',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        })
+        
+        # Navegar con timeout más largo y esperar solo a que cargue el DOM
+        page.goto(url, wait_until="domcontentloaded", timeout=60000)
+        time.sleep(5)  # Esperar a que cargue el contenido dinámico
+        
+        # Intentar esperar a que aparezcan las tarjetas
+        try:
+            page.wait_for_selector("[data-posting-type], [data-to-posting]", timeout=10000)
+        except:
+            pass  # Continuar aunque no aparezcan, puede que ya estén en el HTML
+        
         html = page.content()
         soup = BeautifulSoup(html, "lxml")
         cards = soup.find_all("div", attrs={"data-posting-type": True})
