@@ -43,6 +43,10 @@ def fetch_listing_page(session: cloudscraper.CloudScraper, url: str) -> list[dic
     cards = soup.find_all("div", attrs={"data-posting-type": True})
     if not cards:
         cards = soup.select("[data-to-posting]")
+    if not cards:
+        # Debug: guardar HTML si no encuentra tarjetas
+        print(f"  ⚠️  No se encontraron tarjetas en {url}")
+        print(f"     Status code: {r.status_code}, Tamaño HTML: {len(r.text)} bytes")
     out = []
     for node in cards:
         row = parse_card(node)
@@ -79,10 +83,14 @@ def scrape_all_listings(
                 break
             url = page_url(base_url, page)
             try:
+                print(f"  Scrapeando: {url}")
                 rows = fetch_listing_page(session, url)
-            except Exception:
+                print(f"    Encontrados {len(rows)} avisos en esta página")
+            except Exception as e:
+                print(f"  ⚠️  Error scrapeando {url}: {e}")
                 break
             if not rows:
+                print(f"  Sin avisos en página {page}, terminando paginación para {base_url}")
                 break
             for row in rows:
                 if max_listings is not None and len(results) >= max_listings:
